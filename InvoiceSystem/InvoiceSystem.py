@@ -94,8 +94,78 @@ class InvoiceAutomation:
         self.root.mainloop()
         
 
+    @staticmethod
+    def replace_text(paragraph, old_text, new_text):
+        if old_text in paragraph.text:
+           paragraph.text = paragraph.text.replace(old_text, new_text)   
+        
+        
     def create_invoice(self):
-        pass
+       try:
+           doc = docx.Document("template.docx")
+        
+           selected_method = self.selected_payment_method.get()
+           payment_details = self.payment_methods[selected_method]
+        
+           try:
+              amount = float(self.partner_amount_entry.get())
+              price = float(self.partner_price_entry.get())
+              cost = amount * price
+            
+            
+              replacements = {
+                 "[Date]": dt.datetime.today().strftime('%d-%m-%Y'),
+                 "[Name]": self.partner_name_entry.get(),
+                 "[Address]": self.partner_add_entry.get(),
+                 "[Contact Number]": self.partner_cont_entry.get(),
+                 "[inumber]": self.partner_invoiceNo_entry.get(),
+                 "[Service]": self.partner_service_entry.get(),
+                 "[Amount]": str(amount),
+                 "[Single Price]": f"${price:.2f}",
+                 "[Full Price]": f"${cost:.2f}",
+                 "[Recipient]": payment_details['Recipient'],
+                 "[Bank]": payment_details['Bank'],
+                 "[AccNo]": payment_details['AccNo'],
+                 "[IFSC]": payment_details['IFSC']
+              }
+        
+           except ValueError:
+              messagebox.showerror('Error', 'Invalid amount or price')
+              return 
+        
+           for paragraph in doc.paragraphs:
+               for old_text, new_text in replacements.items():
+                  self.replace_text(paragraph, old_text, new_text)
+            
+           for table in doc.tables:
+              for row in table.rows:
+                 for cell in row.cells:
+                     for paragraph in cell.paragraphs:
+                         for old_text, new_text in replacements.items():
+                             self.replace_text(paragraph, old_text, new_text)
+                            
+           save_path = filedialog.asksaveasfilename(
+               defaultextension='.pdf',
+               filetypes=[('PDF documents', '*.pdf')]
+           )
+        
+           if not save_path:
+              return
+            
+           temp_docx = "temp.docx"
+           doc.save(temp_docx)
+        
+           try:
+              convert(temp_docx, save_path)
+              messagebox.showinfo('Success', 'Invoice created and saved successfully!')
+           except Exception as e:
+               messagebox.showerror('Error', f'Failed to convert to PDF: {str(e)}')
+           finally:
+               if os.path.exists(temp_docx):
+                    os.remove(temp_docx)
+                
+        except Exception as e:
+            messagebox.showerror('Error', f'An error occurred: {str(e)}')
 
 if __name__ == "__main__":
     InvoiceAutomation()
